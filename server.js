@@ -23,16 +23,61 @@ const server = http.createServer((req, res) => {
 
   // ── Webhook ──────────────────────────────────────────────────────────────
   if (url.pathname === "/webhook" && req.method === "POST") {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      try {
-        const payload = JSON.parse(body);
+      const rawBuffer = Buffer.concat(chunks);
+      const rawBody = rawBuffer.toString("utf8");
+      const contentType = req.headers["content-type"] || "";
 
+      console.log("[webhook] content-type:", contentType);
+      console.log("[webhook] raw body:", rawBody.slice(0, 500));
+
+      let payload = null;
+
+      try {
+        if (contentType.includes("application/json")) {
+          // Standard JSON
+          payload = JSON.parse(rawBody);
+        } else if (contentType.includes("multipart/form-data")) {
+          // PlateRecognizer ALPR stream sends multipart; extract the JSON field named "json"
+          const boundary = contentType.split("boundary=")[1]?.trim();
+          if (boundary) {
+            const jsonMatch = rawBody.match(/name="json"\s*\r?\n\r?\n([\s\S]*?)(?:\r?\n--)/);
+            if (jsonMatch) payload = JSON.parse(jsonMatch[1].trim());
+          }
+          // Fallback: try to find any JSON object in the body
+          if (!payload) {
+            const jsonMatch = rawBody.match(/\{[\s\S]*\}/);
+            if (jsonMatch) payload = JSON.parse(jsonMatch[0]);
+          }
+        } else if (contentType.includes("application/x-www-form-urlencoded")) {
+          // URL-encoded: decode and look for a 'json' field
+          const params = new URLSearchParams(rawBody);
+          const jsonField = params.get("json") || params.get("data") || params.get("payload");
+          if (jsonField) payload = JSON.parse(jsonField);
+          else payload = Object.fromEntries(params.entries());
+        } else {
+          // Unknown — try JSON anyway
+          payload = JSON.parse(rawBody);
+        }
+      } catch (parseErr) {
+        console.error("[webhook] parse error:", parseErr.message);
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "Could not parse body", raw: rawBody.slice(0, 200) }));
+        return;
+      }
+
+      if (!payload) {
+        console.error("[webhook] empty payload after parsing");
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "Empty payload" }));
+        return;
+      }
+
+      try {
         // PlateRecognizer sends { results: [...], ... } or wraps in { data: {...} }
-        // Support both formats.
-        const inner =
-          payload.data || payload;
+        const inner = payload.data || payload;
         const results = inner.results || [];
 
         const read = {
@@ -48,18 +93,17 @@ const server = http.createServer((req, res) => {
             region: r.region?.code || null,
             direction: r.direction || null,
             vehicle: r.vehicle
-              ? {
+                ? {
                   type: r.vehicle.type,
                   color: r.vehicle.color?.[0]?.color || null,
                   make: r.vehicle.make_model?.[0]?.make || null,
                   model: r.vehicle.make_model?.[0]?.model || null,
                   score: r.vehicle.score != null ? Math.round(r.vehicle.score * 100) : null,
                 }
-              : null,
+                : null,
           })),
           raw: payload,
         };
-        console.log("New read received:", read);
 
         plateReads.unshift(read);
         if (plateReads.length > MAX_READS) plateReads.pop();
@@ -69,9 +113,9 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {
-        console.error("Webhook parse error:", err.message);
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: "Invalid JSON" }));
+        console.error("[webhook] processing error:", err.message);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: err.message }));
       }
     });
     return;
