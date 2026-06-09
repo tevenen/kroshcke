@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kroschke</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;600;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --card: #161b22;
+    --border: #21262d;
+    --accent: #f0c040;
+    --accent2: #3fb950;
+    --accent3: #58a6ff;
+    --muted: #484f58;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --danger: #f85149;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.08) 2px,
+      rgba(0,0,0,.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1117 0%, var(--bg) 100%);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    animation: pulse-hex 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-hex {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240,192,64,.4); }
+    50% { box-shadow: 0 0 0 8px rgba(240,192,64,0); }
+  }
+
+  .logo-text {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background .3s;
+  }
+  .status-dot.connected { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); animation: blink 2s ease-in-out infinite; }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  .status-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: .06em;
+  }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-clear:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .stat {
+    flex: 1;
+    padding: 14px 24px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 26px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  /* ── Main layout ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    min-height: calc(100vh - 120px);
+  }
+
+  /* ── Feed ── */
+  .feed {
+    border-right: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .feed-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .feed-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .feed-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Empty state ── */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 80px 24px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .empty svg { opacity: .3; }
+  .empty-title { font-size: 20px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  .empty-sub { font-family: var(--mono); font-size: 13px; line-height: 1.6; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    animation: slide-in .35s cubic-bezier(.22,1,.36,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .plates-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .plate-chip {
+    background: var(--accent);
+    color: #0a0c0f;
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: bold;
+    padding: 4px 16px 2px;
+    letter-spacing: .18em;
+    clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%);
+  }
+
+  .no-plate {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--muted);
+    padding: 6px 0;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .timestamp {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .camera-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    background: rgba(88,166,255,.08);
+    border: 1px solid rgba(88,166,255,.2);
+    padding: 2px 8px;
+  }
+
+  .card-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .detail-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+  }
+
+  .detail-pill .key { color: var(--muted); margin-right: 2px; }
+
+  .score-bar {
+    height: 3px;
+    background: var(--border);
+    flex: 1;
+    min-width: 40px;
+    position: relative;
+  }
+  .score-fill {
+    height: 100%;
+    background: var(--accent2);
+    transition: width .4s ease;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .sidebar-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  .endpoint-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent3);
+    word-break: break-all;
+    line-height: 1.6;
+    position: relative;
+  }
+
+  .endpoint-box .method {
+    color: var(--accent);
+    font-weight: bold;
+    margin-right: 6px;
+  }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all .2s;
+    display: block;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .latest-plate {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    text-align: center;
+  }
+
+  .latest-plate-number {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: bold;
+    color: var(--accent);
+    letter-spacing: .2em;
+    line-height: 1;
+    margin-bottom: 4px;
+    min-height: 36px;
+  }
+
+  .latest-plate-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .log-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .log-entry .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-entry .log-plate { color: var(--accent); font-weight: bold; }
+  .log-entry .log-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent2);
+    flex-shrink: 0;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚗</div>
+    <div class="logo-text"><span>KROSCHKE</span></div>
+  </div>
+  <div class="header-right">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">CONNECTING…</span>
+    </div>
+    <button class="btn-clear" onclick="clearReads()">⌫ CLEAR</button>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-label">Total Reads</div>
+    <div class="stat-value" id="statTotal">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Last Hour</div>
+    <div class="stat-value" id="statHour">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Unique Plates</div>
+    <div class="stat-value" id="statUnique">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Avg Confidence</div>
+    <div class="stat-value" id="statConf">—</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="feed" id="feed">
+    <div class="feed-header">
+      <h2>Live Feed</h2>
+      <span class="feed-count" id="feedCount"></span>
+    </div>
+    <div class="empty" id="emptyState">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <rect x="4" y="20" width="56" height="32" rx="4" stroke="#8b949e" stroke-width="2"/>
+        <rect x="12" y="28" width="40" height="16" rx="2" stroke="#8b949e" stroke-width="2"/>
+        <circle cx="14" cy="46" r="6" stroke="#8b949e" stroke-width="2"/>
+        <circle cx="50" cy="46" r="6" stroke="#8b949e" stroke-width="2"/>
+        <path d="M20 12 L44 12" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="empty-title">Awaiting Detections</div>
+      <div class="empty-sub">Configure PlateRecognizer to POST<br/>to your webhook URL to see results here.</div>
+    </div>
+  </div>
+
+  <div class="sidebar" style="display:none">
+    <div class="sidebar-section">
+      <h3>Webhook Endpoint</h3>
+      <div class="endpoint-box">
+        <span class="method">POST</span><span id="webhookUrl">loading…</span>
+      </div>
+      <button class="copy-btn" onclick="copyWebhook()">COPY URL</button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Latest Detection</h3>
+      <div class="latest-plate">
+        <div class="latest-plate-number" id="latestPlate">—</div>
+        <div class="latest-plate-time" id="latestTime">No reads yet</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Recent Log</h3>
+      <div class="log-list" id="logList">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">No entries yet…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allReads = [];
+
+  // ── Webhook URL ──────────────────────────────────────────────────────────
+  const webhookUrl = `${location.origin}/webhook`;
+  document.getElementById('webhookUrl').textContent = webhookUrl;
+
+  function copyWebhook() {
+    navigator.clipboard.writeText(webhookUrl).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✓ COPIED';
+      setTimeout(() => btn.textContent = 'COPY URL', 2000);
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function updateStats() {
+    const now = Date.now();
+    const hourAgo = now - 3600_000;
+    const recentReads = allReads.filter(r => new Date(r.timestamp).getTime() > hourAgo);
+    const allPlates = allReads.flatMap(r => r.plates.map(p => p.plate)).filter(p => p !== '—');
+    const unique = new Set(allPlates).size;
+    const scores = allReads.flatMap(r => r.plates.map(p => p.score)).filter(s => s != null);
+    const avgConf = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
+    document.getElementById('statTotal').textContent = allReads.length;
+    document.getElementById('statHour').textContent = recentReads.length;
+    document.getElementById('statUnique').textContent = unique;
+    document.getElementById('statConf').textContent = avgConf != null ? avgConf + '%' : '—';
+    document.getElementById('feedCount').textContent = allReads.length ? `${allReads.length} events` : '';
+  }
+
+  function updateLatest() {
+    if (!allReads.length) return;
+    const r = allReads[0];
+    const plate = r.plates[0]?.plate || '—';
+    document.getElementById('latestPlate').textContent = plate;
+    document.getElementById('latestTime').textContent = fmtDate(r.timestamp);
+  }
+
+  function updateLog() {
+    const container = document.getElementById('logList');
+    if (!allReads.length) {
+      container.innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--muted)">No entries yet…</div>';
+      return;
+    }
+    container.innerHTML = allReads.slice(0, 20).map(r => {
+      const plate = r.plates[0]?.plate || '—';
+      return `<div class="log-entry">
+        <div class="log-dot"></div>
+        <div class="log-time">${fmtTime(r.timestamp)}</div>
+        <div class="log-plate">${plate}</div>
+        ${r.camera !== 'Unknown camera' ? `<div style="color:var(--muted);font-size:11px">${r.camera}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function renderCard(read) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.dataset.id = read.id;
+
+    const platesHtml = read.plates.length
+      ? read.plates.map(p => {
+          const score = p.score != null ? p.score : null;
+          const info = [
+            p.region ? `<span class="detail-pill"><span class="key">Region</span>${p.region.toUpperCase()}</span>` : '',
+            score != null ? `<span class="detail-pill"><span class="key">Conf</span>${score}%</span>` : '',
+            p.dscore != null ? `<span class="detail-pill"><span class="key">Detect</span>${p.dscore}%</span>` : '',
+            p.vehicle?.color ? `<span class="detail-pill"><span class="key">Color</span>${p.vehicle.color}</span>` : '',
+            p.vehicle?.make ? `<span class="detail-pill"><span class="key">Make</span>${p.vehicle.make}</span>` : '',
+            p.vehicle?.model ? `<span class="detail-pill"><span class="key">Model</span>${p.vehicle.model}</span>` : '',
+            p.vehicle?.type ? `<span class="detail-pill"><span class="key">Type</span>${p.vehicle.type}</span>` : '',
+          ].filter(Boolean).join('');
+          return `<div>
+            <div class="plates-list"><div class="plate-chip">${p.plate}</div></div>
+          </div>`;
+        }).join('<hr style="border:none;border-top:1px solid var(--border);margin:12px 0"/>')
+      : `<div class="no-plate">No plates detected</div>`;
+
+    div.innerHTML = `
+      <div class="card-top">
+        <div style="flex:1">${platesHtml}</div>
+        <div class="card-meta">
+          <div class="timestamp">${fmtDate(read.timestamp)}</div>
+          ${read.camera !== 'Unknown camera' ? `<div class="camera-tag">${read.camera}</div>` : ''}
+        </div>
+      </div>
+    `;
+    return div;
+  }
+
+  function renderAll() {
+    const feed = document.getElementById('feed');
+    const emptyState = document.getElementById('emptyState');
+
+    feed.querySelectorAll('.card').forEach(c => c.remove());
+
+    if (!allReads.length) {
+      emptyState.style.display = 'flex';
+      return;
+    }
+
+    emptyState.style.display = 'none';
+    const frag = document.createDocumentFragment();
+    allReads.forEach(r => frag.appendChild(renderCard(r)));
+    feed.appendChild(frag);
+  }
+
+  function prependCard(read) {
+    const feed = document.getElementById('feed');
+    const header = feed.querySelector('.feed-header');
+    document.getElementById('emptyState').style.display = 'none';
+    const card = renderCard(read);
+    header.insertAdjacentElement('afterend', card);
+  }
+
+  async function clearReads() {
+    await fetch('/api/reads', { method: 'DELETE' });
+  }
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  function connect() {
+    const es = new EventSource('/events');
+
+    es.onopen = () => {
+      document.getElementById('statusDot').className = 'status-dot connected';
+      document.getElementById('statusLabel').textContent = 'LIVE';
+    };
+
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'init') {
+        allReads = msg.reads;
+        renderAll();
+        updateStats();
+        updateLatest();
+        updateLog();
+      }
+
+      if (msg.type === 'new_read') {
+        allReads.unshift(msg.read);
+        if (allReads.length > 100) allReads.pop();
+        prependCard(msg.read);
+        updateStats();
+        updateLatest();
+        updateLog();
+      }
+
+      if (msg.type === 'cleared') {
+        allReads = [];
+        renderAll();
+        updateStats();
+        updateLog();
+        document.getElementById('latestPlate').textContent = '—';
+        document.getElementById('latestTime').textContent = 'No reads yet';
+      }
+    };
+
+    es.onerror = () => {
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('statusLabel').textContent = 'RECONNECTING…';
+      es.close();
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>
