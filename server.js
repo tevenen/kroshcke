@@ -67,7 +67,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, error: "Could not parse body", raw: rawBody.slice(0, 200) }));
         return;
       }
-
+      console.log("[webhook] parsed payload:", payload);
       if (!payload) {
         console.error("[webhook] empty payload after parsing");
         res.writeHead(400, { "Content-Type": "application/json" });
